@@ -71,7 +71,7 @@ cp .env.example .env
 npm install
 npm run dev
 ```
-*Backend berjalan di: `https://api.kingcreativestudio.my.id/kasta/kasta`*
+*Backend berjalan di: `https://api.kingcreativestudio.my.id/kasta`*
 *Akun Administrator default: `admin` / `admin123`*
 
 ### 3. Frontend

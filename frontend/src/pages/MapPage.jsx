@@ -5,8 +5,10 @@ import RecordDetail from "@/components/RecordDetail";
 import { api } from "@/utils/api";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { request } from "@/utils/request";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function MapPage() {
+  const { user, isSuperAdmin, superAdminScope } = useAuth();
   const [rawPoints, setRawPoints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("all");
@@ -16,11 +18,12 @@ export default function MapPage() {
 
   useEffect(() => {
     setLoading(true);
-    request(() => api.get(API_ENDPOINTS.MAP))
+    const params = isSuperAdmin && superAdminScope ? { kabupaten: superAdminScope } : {};
+    request(() => api.get(API_ENDPOINTS.MAP, { params }))
       .then((r) => setRawPoints(r.data || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [isSuperAdmin, superAdminScope]);
 
   const availableYears = useMemo(() => {
     const years = [...new Set(rawPoints.map((p) => p.tahun).filter(Boolean))];
@@ -59,17 +62,25 @@ export default function MapPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1>Peta Sebaran Lokasi</h1>
-          <p className="text-xs text-clay-600">
-            Peta digital pemetaan titik lokasi arsip sengketa dan perkara pertanahan
+          <div className="flex items-center gap-2">
+            <h1>Peta Sebaran Lokasi</h1>
+            {user?.kabupaten && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-sand-300 bg-sand-50 px-2.5 py-0.5 text-xs font-semibold text-clay-800">
+                <MapPin size={11} className="text-red-500" />
+                {user.kabupaten}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-clay-600 mt-0.5">
+            Peta digital pemetaan titik lokasi arsip sengketa dan perkara pertanahan ({user?.kabupaten || "Semua Wilayah"})
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs">
-          <span className="flex items-center gap-1.5 rounded-lg border border-sand-200 bg-white px-2.5 py-1 text-clay-800 shadow-sm">
+          <span className="flex items-center gap-1.5 rounded-lg border border-sand-200 bg-white px-2.5 py-1 text-clay-800 shadow-xs">
             <span className="h-2.5 w-2.5 rounded-full bg-[#8A4B1F]" />
             Sengketa: <strong>{sengketaCount}</strong>
           </span>
-          <span className="flex items-center gap-1.5 rounded-lg border border-sand-200 bg-white px-2.5 py-1 text-clay-800 shadow-sm">
+          <span className="flex items-center gap-1.5 rounded-lg border border-sand-200 bg-white px-2.5 py-1 text-clay-800 shadow-xs">
             <span className="h-2.5 w-2.5 rounded-full bg-[#1E40AF]" />
             Perkara: <strong>{perkaraCount}</strong>
           </span>

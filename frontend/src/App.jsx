@@ -8,7 +8,7 @@ import MapPage from "@/pages/MapPage";
 import Users from "@/pages/Users";
 
 export default function App() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   if (!user) return <Login />;
   return (
     <Routes>
@@ -17,7 +17,7 @@ export default function App() {
         <Route path="/sengketa" element={<Records key="sengketa" type="sengketa" />} />
         <Route path="/perkara" element={<Records key="perkara" type="perkara" />} />
         <Route path="/peta" element={<MapPage />} />
-        {user.role === "admin" && <Route path="/pengguna" element={<Users />} />}
+        {isAdmin && <Route path="/pengguna" element={<Users />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

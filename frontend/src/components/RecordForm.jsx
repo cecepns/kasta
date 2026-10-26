@@ -5,6 +5,7 @@ import Field from "./Field";
 import Modal from "./Modal";
 import PartyEditor from "./PartyEditor";
 import MapPicker from "./MapPicker";
+import WilayahSelector from "./WilayahSelector";
 import { api } from "@/utils/api";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { request } from "@/utils/request";
@@ -109,19 +110,18 @@ export default function RecordForm({ type, initial, onClose, onSaved }) {
 
         <section className="space-y-3">
           <h2>{type === "sengketa" ? "IV. Objek" : "V. Objek Perkara"}</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              ["dusun", "Dusun/Lingkungan"],
-              ["desa", "Desa/Kelurahan"],
-              ["kecamatan", "Kecamatan"],
-              ["kabupaten", "Kabupaten"],
-              ["provinsi", "Provinsi"],
-            ].map(([k, l]) => (
-              <Field key={k} label={l}>
-                <input placeholder={l} {...bind(k)} />
-              </Field>
-            ))}
-          </div>
+          <WilayahSelector
+            values={{
+              provinsi: f.provinsi,
+              kabupaten: f.kabupaten,
+              kecamatan: f.kecamatan,
+              desa: f.desa,
+              dusun: f.dusun,
+            }}
+            lockedToUser={true}
+            showDusun={true}
+            onChange={(newLoc) => setF((s) => ({ ...s, ...newLoc }))}
+          />
           <MapPicker
             lat={f.lat}
             lng={f.lng}

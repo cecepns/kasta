@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ArrowLeft, Filter, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, FileSpreadsheet, Filter, MapPin, Pencil, Plus, RotateCcw, Trash2, Upload } from "lucide-react";
 import DataTable from "@/components/DataTable";
 import RecordForm from "@/components/RecordForm";
 import RecordDetail from "@/components/RecordDetail";
+import ExcelModal from "@/components/ExcelModal";
 import useList from "@/hooks/useList";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/utils/api";
@@ -13,7 +14,7 @@ import { RECORDS } from "@/utils/config";
 
 export default function Records({ type }) {
   const cfg = RECORDS[type];
-  const { isAdmin } = useAuth();
+  const { user, isSuperAdmin, isAdmin, superAdminScope } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const yearParam = searchParams.get("tahun");
   const year = yearParam ? +yearParam : null;
@@ -23,18 +24,26 @@ export default function Records({ type }) {
   const [form, setForm] = useState(null);
   const [detail, setDetail] = useState(null);
   const [filters, setFilters] = useState({});
+  const [excelModal, setExcelModal] = useState(null);
 
-  const list = useList(API_ENDPOINTS.RECORDS.LIST(type), { tahun: year, ...filters }, year !== null);
+  const listParams = {
+    tahun: year,
+    ...filters,
+    ...(isSuperAdmin && superAdminScope ? { kabupaten: superAdminScope } : {}),
+  };
+
+  const list = useList(API_ENDPOINTS.RECORDS.LIST(type), listParams, year !== null);
 
   const loadYears = () => {
     setYearsLoading(true);
-    request(() => api.get(API_ENDPOINTS.RECORDS.YEARS(type)))
+    const params = isSuperAdmin && superAdminScope ? { kabupaten: superAdminScope } : {};
+    request(() => api.get(API_ENDPOINTS.RECORDS.YEARS(type), { params }))
       .then((r) => setYears(r.data))
       .catch(() => {})
       .finally(() => setYearsLoading(false));
   };
 
-  useEffect(loadYears, [type]);
+  useEffect(loadYears, [type, superAdminScope]);
 
   const selectYear = (y) => {
     setFilters({});
@@ -98,17 +107,41 @@ export default function Records({ type }) {
             </button>
           )}
           <div>
-            <h1>
-              Arsip {cfg.label} {year !== null && `· Tahun ${year}`}
-            </h1>
-            <p className="text-xs text-clay-600">
-              {year === null
-                ? `Pilih tahun untuk melihat tabel berkas ${cfg.label.toLowerCase()}`
-                : `Menampilkan berkas arsip ${cfg.label.toLowerCase()} tahun ${year}`}
-            </p>
+            <div className="flex items-center gap-2">
+              <h1>
+                Arsip {cfg.label} {year !== null && `· Tahun ${year}`}
+              </h1>
+              {user?.kabupaten && (
+                <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-sand-300 bg-sand-50 px-2.5 py-0.5 text-xs font-semibold text-clay-800">
+                  <MapPin size={11} className="text-red-500" />
+                  {user.kabupaten}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        {addBtn}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="btn-outline text-xs text-clay-700 bg-white shadow-xs"
+            onClick={() => setExcelModal("export")}
+            title="Ekspor data ke file Excel (.xlsx)"
+          >
+            <FileSpreadsheet size={15} className="text-emerald-700" /> Export Excel
+          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="btn-outline text-xs text-clay-700 bg-white shadow-xs"
+              onClick={() => setExcelModal("import")}
+              title="Impor data dari file Excel (.xlsx)"
+            >
+              <Upload size={15} className="text-blue-700" /> Import Excel
+            </button>
+          )}
+          {addBtn}
+        </div>
       </div>
 
       {year === null ? (
@@ -154,7 +187,7 @@ export default function Records({ type }) {
           </table>
           {!yearsLoading && !years.length && (
             <div className="py-14 text-center text-sm text-clay-600 space-y-2">
-              <p>Belum ada data arsip {cfg.label.toLowerCase()}</p>
+              <p>Belum ada data arsip {cfg.label.toLowerCase()} untuk wilayah ini</p>
               {isAdmin && (
                 <button className="btn-outline text-xs" onClick={() => setForm({})}>
                   <Plus size={14} /> Tambah Data Sekarang
@@ -249,6 +282,18 @@ export default function Records({ type }) {
         />
       )}
       {detail && <RecordDetail type={type} row={detail} onClose={() => setDetail(null)} />}
+      {excelModal && (
+        <ExcelModal
+          type={type}
+          currentYear={year}
+          initialMode={excelModal}
+          onClose={() => setExcelModal(null)}
+          onImportSuccess={() => {
+            list.reload();
+            loadYears();
+          }}
+        />
+      )}
     </div>
   );
 }

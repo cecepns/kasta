@@ -113,10 +113,51 @@ export default function Login() {
           </button>
         </form>
 
-        <div className="mt-6 border-t border-sand-100 pt-4 text-center">
-          <p className="text-[11px] text-clay-500">
-            Aplikasi internal kantor · Hak akses terbatas untuk pegawai berwenang
+        {/* Info & Demo Switcher */}
+        <div className="mt-5 space-y-2.5 border-t border-sand-100 pt-3.5">
+          <p className="text-[11px] text-clay-600 text-center">
+            Wilayah kerja ditentukan otomatis sesuai penetapan Administrator pada akun masing-masing.
           </p>
+
+          <div className="rounded-xl border border-sand-200 bg-sand-50/70 p-2.5 space-y-1.5 text-xs">
+            <span className="text-[11px] font-bold text-clay-700 block uppercase tracking-wider">
+              Akun Uji Coba Multi-Wilayah:
+            </span>
+            <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+              <button
+                type="button"
+                onClick={() => setForm({ username: "admin", password: "admin123" })}
+                className="rounded border border-purple-200 bg-purple-50/60 p-1.5 text-left text-purple-900 hover:bg-purple-100 transition"
+              >
+                <strong>Admin Pusat</strong>
+                <span className="block text-[10px] text-purple-700">admin / admin123</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ username: "admin_makassar", password: "admin123" })}
+                className="rounded border border-amber-200 bg-amber-50/60 p-1.5 text-left text-amber-900 hover:bg-amber-100 transition"
+              >
+                <strong>Admin Makassar</strong>
+                <span className="block text-[10px] text-amber-700">Kota Makassar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ username: "admin_bandung", password: "admin123" })}
+                className="rounded border border-blue-200 bg-blue-50/60 p-1.5 text-left text-blue-900 hover:bg-blue-100 transition"
+              >
+                <strong>Admin Bandung</strong>
+                <span className="block text-[10px] text-blue-700">Kab. Bandung</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ username: "user_makassar", password: "user123" })}
+                className="rounded border border-sand-200 bg-white p-1.5 text-left text-clay-800 hover:bg-sand-100 transition"
+              >
+                <strong>Staff Makassar</strong>
+                <span className="block text-[10px] text-clay-500">Lihat/Baca Saja</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

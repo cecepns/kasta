@@ -1,20 +1,45 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArrowRight, Calendar, Gavel, Scale } from "lucide-react";
+import { ArrowRight, Calendar, Filter, Gavel, Globe, MapPin, Scale } from "lucide-react";
 import { api } from "@/utils/api";
 import { API_ENDPOINTS } from "@/utils/endpoints";
 import { request } from "@/utils/request";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user, isSuperAdmin, superAdminScope, setSuperAdminScope } = useAuth();
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [allRegencies, setAllRegencies] = useState([]);
+
+  // Load regency options for Superadmin filter
+  useEffect(() => {
+    if (isSuperAdmin) {
+      api
+        .get(API_ENDPOINTS.WILAYAH.ALL_REGENCIES)
+        .then((res) => setAllRegencies(res.data?.data || res.data || []))
+        .catch(() => {});
+    }
+  }, [isSuperAdmin]);
+
+  const loadData = () => {
+    setLoading(true);
+    const params = {};
+    if (isSuperAdmin && superAdminScope) {
+      params.kabupaten = superAdminScope;
+    }
+    request(() => api.get(API_ENDPOINTS.DASHBOARD, { params }))
+      .then((r) => setData(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
-    request(() => api.get(API_ENDPOINTS.DASHBOARD))
-      .then((r) => setData(r.data))
-      .catch(() => {});
-  }, []);
+    loadData();
+    // eslint-disable-next-line
+  }, [superAdminScope, isSuperAdmin]);
 
   const stats = [
     ["Sengketa", data?.totals.sengketa, Scale, "/sengketa", "bg-amber-50 text-amber-900 border-amber-200"],
@@ -30,11 +55,63 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1>Dashboard KASTA</h1>
-        <p className="text-sm text-clay-600">
-          Sistem Informasi Manajemen Arsip Digital Sengketa & Perkara Pertanahan Berbasis Lokasi
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1>Dashboard KASTA</h1>
+          <p className="text-sm text-clay-600">
+            Sistem Informasi Manajemen Arsip Digital Sengketa & Perkara Pertanahan Berbasis Lokasi
+          </p>
+        </div>
+
+        {/* Superadmin scope selector */}
+        {isSuperAdmin ? (
+          <div className="flex items-center gap-2 rounded-xl border border-sand-300 bg-white p-2 shadow-xs text-xs">
+            <Filter size={14} className="text-clay-500" />
+            <span className="font-semibold text-clay-700">Filter Wilayah:</span>
+            <select
+              className="input py-1 px-2 text-xs font-medium w-auto max-w-[200px]"
+              value={superAdminScope}
+              onChange={(e) => setSuperAdminScope(e.target.value)}
+            >
+              <option value="">Semua Wilayah (Nasional)</option>
+              {allRegencies.map((r) => (
+                <option key={r.code} value={r.name}>
+                  {r.name} ({r.provinceName})
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 rounded-xl border border-sand-300 bg-sand-50/80 px-3 py-1.5 text-xs text-clay-800 font-semibold shadow-xs">
+            <MapPin size={14} className="text-red-500 shrink-0" />
+            <span>Wilayah: {user?.kabupaten}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Scope banner */}
+      <div className="rounded-xl border border-sand-200 bg-white p-3.5 shadow-xs flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2">
+          {isSuperAdmin && !superAdminScope ? (
+            <Globe size={16} className="text-purple-600" />
+          ) : (
+            <MapPin size={16} className="text-red-500" />
+          )}
+          <span className="text-clay-700 font-medium">
+            Menampilkan statistik berkas untuk:{" "}
+            <strong className="text-clay-900 font-bold text-sm">
+              {!isSuperAdmin ? user?.kabupaten : superAdminScope || "Seluruh Wilayah Indonesia (Pusat)"}
+            </strong>
+          </span>
+        </div>
+        {isSuperAdmin && superAdminScope && (
+          <button
+            onClick={() => setSuperAdminScope("")}
+            className="text-xs text-clay-600 hover:text-clay-900 underline"
+          >
+            Kembali ke Semua Wilayah
+          </button>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -50,7 +127,9 @@ export default function Dashboard() {
               </span>
               <div>
                 <p className="text-xs uppercase font-semibold tracking-wider text-clay-600">Total {label}</p>
-                <p className="text-3xl font-extrabold text-clay-900">{n ?? "–"}</p>
+                <p className="text-3xl font-extrabold text-clay-900">
+                  {loading ? "..." : n ?? "0"}
+                </p>
               </div>
             </div>
             <span className="flex items-center gap-1 text-xs font-semibold text-clay-700 hover:underline">
@@ -67,10 +146,12 @@ export default function Dashboard() {
             <p className="text-xs text-clay-500">Klik pada batang grafik untuk langsung membuka arsip tahun tersebut</p>
           </div>
         </div>
-        {!data ? (
+        {loading ? (
           <div className="h-72 animate-pulse rounded-lg bg-sand-100" />
-        ) : !data.chart?.length ? (
-          <p className="py-16 text-center text-sm text-clay-600">Belum ada data arsip yang tersimpan</p>
+        ) : !data?.chart?.length ? (
+          <p className="py-16 text-center text-sm text-clay-600">
+            Belum ada data arsip yang tersimpan untuk wilayah ini
+          </p>
         ) : (
           <div className="h-72">
             <ResponsiveContainer>
@@ -99,9 +180,9 @@ export default function Dashboard() {
         <p className="text-xs text-clay-500">
           Pilih salah satu tahun di bawah ini untuk menampilkan data tabel sengketa atau perkara pada tahun tersebut:
         </p>
-        {!data ? (
+        {loading ? (
           <div className="h-20 animate-pulse rounded-lg bg-sand-100" />
-        ) : !data.years?.length ? (
+        ) : !data?.years?.length ? (
           <p className="py-8 text-center text-sm text-clay-600">Belum ada data tahun yang diinput</p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">

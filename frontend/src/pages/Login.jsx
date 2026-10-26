@@ -41,8 +41,11 @@ export default function Login() {
             <Shield size={28} className="text-sun" />
           </div>
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-clay-900">KASTA</h1>
-            <p className="text-xs text-clay-600 mt-0.5">
+            <h1 className="text-2xl font-extrabold tracking-tight text-clay-900 leading-none">KASTA</h1>
+            <p className="text-xs font-semibold text-clay-600 mt-1">
+              initiative by Alvariz M.T.
+            </p>
+            <p className="text-[11px] text-clay-400 mt-0.5">
               Sistem Informasi Arsip Sengketa & Perkara Pertanahan
             </p>
           </div>

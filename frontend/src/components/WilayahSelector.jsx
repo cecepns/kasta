@@ -8,9 +8,17 @@ import { useAuth } from "@/hooks/useAuth";
 
 // Custom styles for React Select to seamlessly match KASTA design system
 const customSelectStyles = {
+  container: (base) => ({
+    ...base,
+    width: "100%",
+    minWidth: 0,
+  }),
   control: (base, state) => ({
     ...base,
+    width: "100%",
+    minWidth: 0,
     minHeight: "38px",
+    height: "38px",
     borderRadius: "0.5rem",
     borderColor: state.isFocused ? "#8A4B1F" : "#E8DED1",
     backgroundColor: state.isDisabled ? "#F5EFEB" : "#FFFFFF",
@@ -20,59 +28,126 @@ const customSelectStyles = {
     },
     fontSize: "0.875rem",
     cursor: state.isDisabled ? "not-allowed" : "pointer",
+    transition: "border-color 0.15s, box-shadow 0.15s",
   }),
-  menu: (base) => ({
+  valueContainer: (base) => ({
     ...base,
-    borderRadius: "0.75rem",
-    boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
-    border: "1px solid #E8DED1",
-    zIndex: 9999,
-  }),
-  menuPortal: (base) => ({
-    ...base,
-    zIndex: 9999,
-  }),
-  option: (base, state) => ({
-    ...base,
-    fontSize: "0.875rem",
-    backgroundColor: state.isSelected
-      ? "#8A4B1F"
-      : state.isFocused
-      ? "#FFF8F1"
-      : "transparent",
-    color: state.isSelected ? "#FFFFFF" : "#4A3324",
-    cursor: "pointer",
-    ":active": {
-      backgroundColor: "#8A4B1F",
-      color: "#FFFFFF",
-    },
+    height: "38px",
+    padding: "0 10px",
+    display: "flex",
+    flexWrap: "nowrap",
+    alignItems: "center",
+    overflow: "hidden",
+    minWidth: 0,
   }),
   placeholder: (base) => ({
     ...base,
     color: "#A89485",
     fontSize: "0.875rem",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    maxWidth: "calc(100% - 12px)",
+    margin: 0,
   }),
   singleValue: (base) => ({
     ...base,
     color: "#2C1B10",
     fontWeight: 500,
+    fontSize: "0.875rem",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    maxWidth: "calc(100% - 12px)",
+    margin: 0,
   }),
   input: (base) => ({
     ...base,
     color: "#2C1B10",
+    margin: 0,
+    padding: 0,
   }),
-  loadingIndicator: (base) => ({
+  indicatorsContainer: (base) => ({
     ...base,
-    color: "#8A4B1F",
-  }),
-  indicatorSeparator: (base) => ({
-    ...base,
-    backgroundColor: "#E8DED1",
+    height: "38px",
+    flexShrink: 0,
   }),
   dropdownIndicator: (base) => ({
     ...base,
+    padding: "4px 8px",
     color: "#8A4B1F",
     "&:hover": { color: "#5C3113" },
+  }),
+  clearIndicator: (base) => ({
+    ...base,
+    padding: "4px 6px",
+    color: "#A89485",
+    "&:hover": { color: "#8A4B1F" },
+  }),
+  indicatorSeparator: (base) => ({
+    ...base,
+    marginTop: "8px",
+    marginBottom: "8px",
+    backgroundColor: "#E8DED1",
+  }),
+  loadingIndicator: (base) => ({
+    ...base,
+    padding: "4px 8px",
+    color: "#8A4B1F",
+  }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 99999,
+  }),
+  menu: (base) => ({
+    ...base,
+    borderRadius: "0.75rem",
+    boxShadow:
+      "0 10px 25px -5px rgba(44, 27, 16, 0.15), 0 8px 10px -6px rgba(44, 27, 16, 0.1)",
+    border: "1px solid #E8DED1",
+    backgroundColor: "#FFFFFF",
+    zIndex: 99999,
+    minWidth: "100%",
+    width: "100%",
+    overflow: "hidden",
+  }),
+  menuList: (base) => ({
+    ...base,
+    padding: "6px",
+    maxHeight: "220px",
+  }),
+  option: (base, state) => ({
+    ...base,
+    borderRadius: "0.375rem",
+    margin: "2px 0",
+    fontSize: "0.875rem",
+    padding: "8px 12px",
+    backgroundColor: state.isSelected
+      ? "#8A4B1F"
+      : state.isFocused
+        ? "#FFF8F1"
+        : "transparent",
+    color: state.isSelected ? "#FFFFFF" : "#4A3324",
+    fontWeight: state.isSelected ? 600 : 400,
+    cursor: "pointer",
+    whiteSpace: "normal",
+    wordBreak: "break-word",
+    ":active": {
+      backgroundColor: "#8A4B1F",
+      color: "#FFFFFF",
+    },
+  }),
+  noOptionsMessage: (base) => ({
+    ...base,
+    fontSize: "0.8125rem",
+    color: "#8C7A6B",
+    padding: "10px",
+  }),
+  loadingMessage: (base) => ({
+    ...base,
+    fontSize: "0.8125rem",
+    color: "#8C7A6B",
+    padding: "10px",
   }),
 };
 
@@ -83,6 +158,7 @@ export default function WilayahSelector({
   showDusun = true,
   levels = ["provinsi", "kabupaten", "kecamatan", "desa"],
   layout = "grid",
+  columns,
 }) {
   const { user, isSuperAdmin } = useAuth();
   const shouldLock = lockedToUser && !isSuperAdmin && !!user?.kabupaten;
@@ -324,22 +400,37 @@ export default function WilayahSelector({
   const showDist = levels.includes("kecamatan");
   const showVill = levels.includes("desa");
 
-  const gridClass = layout === "grid" ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-4" : "space-y-3";
+  const visibleCount = [showProv, showReg, showDist, showVill].filter(Boolean).length;
+
+  let gridClass = "w-full ";
+  if (layout === "vertical") {
+    gridClass += "space-y-3";
+  } else if (columns === 1) {
+    gridClass += "grid grid-cols-1 gap-3";
+  } else if (columns === 2 || visibleCount === 2) {
+    gridClass += "grid grid-cols-1 sm:grid-cols-2 gap-3";
+  } else if (columns === 3 || visibleCount === 3) {
+    gridClass += "grid grid-cols-1 sm:grid-cols-3 gap-3";
+  } else if (columns === 4) {
+    gridClass += "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3";
+  } else {
+    gridClass += "grid grid-cols-1 sm:grid-cols-2 gap-3";
+  }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 w-full">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sand-200/80 pb-2">
         <span className="flex items-center gap-1.5 text-xs font-semibold text-clay-700">
-          <Globe size={14} className="text-emerald-600" />
-          Data Wilayah Resmi Kemendagri RI (Pencarian via API)
+          <Globe size={14} className="text-emerald-600 shrink-0" />
+          Data Wilayah Kemendagri RI
         </span>
         {shouldLock ? (
           <span className="flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 border border-amber-200">
-            <Lock size={11} /> Wilayah Akun: {user?.kabupaten}
+            <Lock size={11} className="shrink-0" /> Wilayah Akun: {user?.kabupaten}
           </span>
         ) : (
           <span className="flex items-center gap-1 text-[11px] text-clay-500">
-            <Search size={11} /> Ketik untuk mencari via API
+            <Search size={11} className="shrink-0" /> Ketik untuk mencari via API
           </span>
         )}
       </div>
@@ -347,20 +438,21 @@ export default function WilayahSelector({
       <div className={gridClass}>
         {/* Provinsi */}
         {showProv && (
-          <Field label="Provinsi">
+          <Field label="Provinsi" className="w-full min-w-0">
             {shouldLock ? (
-              <div className="flex items-center justify-between rounded-lg border border-sand-200 bg-sand-100/60 px-3 py-2 text-sm text-clay-800 font-medium h-[38px]">
+              <div className="flex items-center justify-between rounded-lg border border-sand-200 bg-sand-100/60 px-3 py-2 text-sm text-clay-800 font-medium h-[38px] w-full min-w-0">
                 <span className="truncate">{user?.provinsi || values.provinsi || "-"}</span>
-                <Lock size={14} className="text-clay-400 shrink-0" />
+                <Lock size={14} className="text-clay-400 shrink-0 ml-2" />
               </div>
             ) : (
               <AsyncSelect
+                className="w-full min-w-0"
                 cacheOptions
                 defaultOptions
                 loadOptions={loadProvinces}
                 value={selectedProv}
                 onChange={handleProvChange}
-                placeholder="Ketik cari provinsi..."
+                placeholder="Cari provinsi..."
                 noOptionsMessage={({ inputValue }) =>
                   inputValue ? `Provinsi "${inputValue}" tidak ditemukan` : "Memuat data provinsi..."
                 }
@@ -374,15 +466,16 @@ export default function WilayahSelector({
 
         {/* Kabupaten / Kota */}
         {showReg && (
-          <Field label="Kabupaten / Kota">
+          <Field label="Kabupaten / Kota" className="w-full min-w-0">
             {shouldLock ? (
-              <div className="flex items-center justify-between rounded-lg border border-sand-200 bg-sand-100/60 px-3 py-2 text-sm text-clay-800 font-semibold h-[38px]">
+              <div className="flex items-center justify-between rounded-lg border border-sand-200 bg-sand-100/60 px-3 py-2 text-sm text-clay-800 font-semibold h-[38px] w-full min-w-0">
                 <span className="truncate">{user?.kabupaten || values.kabupaten || "-"}</span>
-                <Lock size={14} className="text-clay-400 shrink-0" />
+                <Lock size={14} className="text-clay-400 shrink-0 ml-2" />
               </div>
             ) : (
               <AsyncSelect
                 key={`reg-${selectedProv?.value || "empty"}-${regKey}`}
+                className="w-full min-w-0"
                 cacheOptions
                 defaultOptions
                 loadOptions={loadRegencies}
@@ -390,16 +483,16 @@ export default function WilayahSelector({
                 onChange={handleRegChange}
                 placeholder={
                   !selectedProv
-                    ? "Pilih provinsi dahulu"
-                    : "Ketik cari kabupaten/kota..."
+                    ? "Pilih provinsi dulu"
+                    : "Cari kabupaten/kota..."
                 }
                 isDisabled={!selectedProv}
                 noOptionsMessage={({ inputValue }) =>
                   !selectedProv
                     ? "Pilih provinsi terlebih dahulu"
                     : inputValue
-                    ? `Kabupaten "${inputValue}" tidak ditemukan`
-                    : "Tidak ada data kabupaten"
+                      ? `Kabupaten "${inputValue}" tidak ditemukan`
+                      : "Tidak ada data kabupaten"
                 }
                 styles={customSelectStyles}
                 menuPortalTarget={typeof document !== "undefined" ? document.body : null}
@@ -411,9 +504,10 @@ export default function WilayahSelector({
 
         {/* Kecamatan */}
         {showDist && (
-          <Field label="Kecamatan">
+          <Field label="Kecamatan" className="w-full min-w-0">
             <AsyncSelect
               key={`dist-${selectedReg?.value || "empty"}-${distKey}`}
+              className="w-full min-w-0"
               cacheOptions
               defaultOptions
               loadOptions={loadDistricts}
@@ -421,16 +515,16 @@ export default function WilayahSelector({
               onChange={handleDistChange}
               placeholder={
                 !selectedReg && !shouldLock
-                  ? "Pilih kabupaten dahulu"
-                  : "Ketik cari kecamatan..."
+                  ? "Pilih kabupaten dulu"
+                  : "Cari kecamatan..."
               }
               isDisabled={!selectedReg && !shouldLock}
               noOptionsMessage={({ inputValue }) =>
                 !selectedReg && !shouldLock
                   ? "Pilih kabupaten terlebih dahulu"
                   : inputValue
-                  ? `Kecamatan "${inputValue}" tidak ditemukan`
-                  : "Tidak ada data kecamatan"
+                    ? `Kecamatan "${inputValue}" tidak ditemukan`
+                    : "Tidak ada data kecamatan"
               }
               styles={customSelectStyles}
               menuPortalTarget={typeof document !== "undefined" ? document.body : null}
@@ -441,9 +535,10 @@ export default function WilayahSelector({
 
         {/* Desa / Kelurahan */}
         {showVill && (
-          <Field label="Desa / Kelurahan">
+          <Field label="Desa / Kelurahan" className="w-full min-w-0">
             <AsyncSelect
               key={`vill-${selectedDist?.value || "empty"}-${villKey}`}
+              className="w-full min-w-0"
               cacheOptions
               defaultOptions
               loadOptions={loadVillages}
@@ -451,16 +546,16 @@ export default function WilayahSelector({
               onChange={handleVillChange}
               placeholder={
                 !selectedDist
-                  ? "Pilih kecamatan dahulu"
-                  : "Ketik cari desa/kelurahan..."
+                  ? "Pilih kecamatan dulu"
+                  : "Cari desa/kelurahan..."
               }
               isDisabled={!selectedDist}
               noOptionsMessage={({ inputValue }) =>
                 !selectedDist
                   ? "Pilih kecamatan terlebih dahulu"
                   : inputValue
-                  ? `Desa/Kelurahan "${inputValue}" tidak ditemukan`
-                  : "Tidak ada data desa"
+                    ? `Desa/Kelurahan "${inputValue}" tidak ditemukan`
+                    : "Tidak ada data desa"
               }
               styles={customSelectStyles}
               menuPortalTarget={typeof document !== "undefined" ? document.body : null}
@@ -472,9 +567,9 @@ export default function WilayahSelector({
 
       {/* Dusun / Lingkungan */}
       {showDusun && (
-        <Field label="Dusun / Lingkungan (Detail Alamat)">
+        <Field label="Dusun / Lingkungan (Detail Alamat)" className="w-full">
           <input
-            className="input text-sm"
+            className="input text-sm w-full"
             placeholder="Contoh: Dusun Cimekar, RT 02 / RW 05, Blok A"
             value={values.dusun || ""}
             onChange={(e) => onChange?.({ dusun: e.target.value })}

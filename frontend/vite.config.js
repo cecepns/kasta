@@ -9,8 +9,17 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      workbox: {
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
+      },
       manifest: {
-        name: "KASTA", short_name: "KASTA", theme_color: "#8A4B1F", background_color: "#FDE3CB", display: "standalone",
+        name: "KASTA",
+        short_name: "KASTA",
+        theme_color: "#8A4B1F",
+        background_color: "#FDE3CB",
+        display: "standalone",
         icons: [{ src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
       },
     }),

@@ -48,7 +48,10 @@ export default function ExcelModal({
         .replace(/[^a-zA-Z0-9]/g, "_");
       const filename = `KASTA_Arsip_${label}_${scopeName}_${exportYear || "SemuaTahun"}`;
 
-      exportRecordsToExcel(rows, type, filename);
+      exportRecordsToExcel(rows, type, filename, {
+        kabupaten: activeKabupaten,
+        tahun: exportYear,
+      });
       toast.success(`Berhasil mengekspor ${rows.length} data berkas ke Excel`);
       onClose();
     } catch (err) {
@@ -196,7 +199,12 @@ export default function ExcelModal({
                 </span>
                 <button
                   type="button"
-                  onClick={() => downloadExcelTemplate(type)}
+                  onClick={() =>
+                    downloadExcelTemplate(type, {
+                      kabupaten: activeKabupaten,
+                      tahun: exportYear,
+                    })
+                  }
                   className="btn-outline py-1 px-2.5 text-xs font-semibold bg-white text-emerald-800 border-emerald-300 hover:bg-emerald-50"
                 >
                   <Download size={13} /> Unduh Template (.xlsx)

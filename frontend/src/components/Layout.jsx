@@ -47,8 +47,8 @@ export default function Layout() {
           <NavLink to="/" className="flex items-center gap-2.5">
             <img src="/logo.png" alt="KASTA" className="h-9 w-auto rounded-lg object-contain shadow-sm" />
             <div>
-              <span className="text-base font-extrabold tracking-tight text-clay-900">KASTA</span>
-              <span className="block text-[10px] text-clay-500 uppercase tracking-wider font-semibold">Arsip Digital</span>
+              <span className="text-base font-extrabold tracking-tight text-clay-900 leading-none">KASTA</span>
+              <span className="block text-[10px] text-clay-500 font-medium leading-tight">initiative by Alvariz M.T.</span>
             </div>
           </NavLink>
         </div>

@@ -233,6 +233,7 @@ export default function Users() {
 
       {form && (
         <Modal
+          size="lg"
           title={form.id ? "Edit Pengguna" : "Tambah Pengguna Baru"}
           onClose={() => setForm(null)}
         >

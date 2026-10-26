@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import AsyncSelect from "react-select/async";
 import { Check, Globe, Lock, Search } from "lucide-react";
 import Field from "./Field";
@@ -176,11 +176,50 @@ export default function WilayahSelector({
 
   const isInitialized = useRef(false);
 
-  // Helper: Load Provinces from API with search
-  const loadProvinces = useCallback(async (inputValue = "") => {
-    try {
+  // Helper debounce generator for async select with auto-abort
+  const makeDebouncedLoader = useCallback((fetcher, delay = 350) => {
+    let timer = null;
+    let abortController = null;
+
+    return (inputValue) => {
+      if (timer) clearTimeout(timer);
+      if (abortController) {
+        abortController.abort();
+      }
+
+      const trimmed = (inputValue || "").trim();
+      // Saat defaultOptions atau input kosong, panggil langsung tanpa delay
+      const wait = trimmed.length === 0 ? 0 : delay;
+
+      return new Promise((resolve) => {
+        timer = setTimeout(async () => {
+          abortController = new AbortController();
+          try {
+            const data = await fetcher(trimmed, abortController.signal);
+            resolve(data || []);
+          } catch (err) {
+            if (
+              err?.name === "CanceledError" ||
+              err?.name === "AbortError" ||
+              err?.code === "ERR_CANCELED" ||
+              err?.message === "canceled"
+            ) {
+              return;
+            }
+            console.error("Error loading options:", err);
+            resolve([]);
+          }
+        }, wait);
+      });
+    };
+  }, []);
+
+  // Helper: Load Provinces from API with debounce & search
+  const loadProvinces = useMemo(() => {
+    return makeDebouncedLoader(async (inputValue, signal) => {
       const res = await api.get(API_ENDPOINTS.WILAYAH.PROVINCES, {
         params: { q: inputValue },
+        signal,
       });
       const list = res.data?.data || res.data || [];
       return list.map((p) => ({
@@ -189,83 +228,68 @@ export default function WilayahSelector({
         code: p.code,
         name: p.name,
       }));
-    } catch (err) {
-      console.error("Gagal load provinsi:", err);
-      return [];
-    }
-  }, []);
+    });
+  }, [makeDebouncedLoader]);
 
-  // Helper: Load Regencies from API with search
-  const loadRegencies = useCallback(
-    async (inputValue = "") => {
-      const provCode = selectedProv?.value;
-      if (!provCode) return [];
-      try {
-        const res = await api.get(API_ENDPOINTS.WILAYAH.REGENCIES(provCode), {
-          params: { q: inputValue },
-        });
-        const list = res.data?.data || res.data || [];
-        return list.map((r) => ({
-          value: r.code,
-          label: r.name,
-          code: r.code,
-          name: r.name,
-        }));
-      } catch (err) {
-        console.error("Gagal load kabupaten:", err);
-        return [];
-      }
-    },
-    [selectedProv?.value]
-  );
+  // Helper: Load Regencies from API with debounce & search
+  const loadRegencies = useMemo(() => {
+    const provCode = selectedProv?.value;
+    if (!provCode) return async () => [];
 
-  // Helper: Load Districts from API with search
-  const loadDistricts = useCallback(
-    async (inputValue = "") => {
-      const regCode = selectedReg?.value;
-      if (!regCode) return [];
-      try {
-        const res = await api.get(API_ENDPOINTS.WILAYAH.DISTRICTS(regCode), {
-          params: { q: inputValue },
-        });
-        const list = res.data?.data || res.data || [];
-        return list.map((d) => ({
-          value: d.code,
-          label: d.name,
-          code: d.code,
-          name: d.name,
-        }));
-      } catch (err) {
-        console.error("Gagal load kecamatan:", err);
-        return [];
-      }
-    },
-    [selectedReg?.value]
-  );
+    return makeDebouncedLoader(async (inputValue, signal) => {
+      const res = await api.get(API_ENDPOINTS.WILAYAH.REGENCIES(provCode), {
+        params: { q: inputValue },
+        signal,
+      });
+      const list = res.data?.data || res.data || [];
+      return list.map((r) => ({
+        value: r.code,
+        label: r.name,
+        code: r.code,
+        name: r.name,
+      }));
+    });
+  }, [selectedProv?.value, makeDebouncedLoader]);
 
-  // Helper: Load Villages from API with search
-  const loadVillages = useCallback(
-    async (inputValue = "") => {
-      const distCode = selectedDist?.value;
-      if (!distCode) return [];
-      try {
-        const res = await api.get(API_ENDPOINTS.WILAYAH.VILLAGES(distCode), {
-          params: { q: inputValue },
-        });
-        const list = res.data?.data || res.data || [];
-        return list.map((v) => ({
-          value: v.name,
-          label: v.name,
-          code: v.code,
-          name: v.name,
-        }));
-      } catch (err) {
-        console.error("Gagal load desa:", err);
-        return [];
-      }
-    },
-    [selectedDist?.value]
-  );
+  // Helper: Load Districts from API with debounce & search
+  const loadDistricts = useMemo(() => {
+    const regCode = selectedReg?.value;
+    if (!regCode) return async () => [];
+
+    return makeDebouncedLoader(async (inputValue, signal) => {
+      const res = await api.get(API_ENDPOINTS.WILAYAH.DISTRICTS(regCode), {
+        params: { q: inputValue },
+        signal,
+      });
+      const list = res.data?.data || res.data || [];
+      return list.map((d) => ({
+        value: d.code,
+        label: d.name,
+        code: d.code,
+        name: d.name,
+      }));
+    });
+  }, [selectedReg?.value, makeDebouncedLoader]);
+
+  // Helper: Load Villages from API with debounce & search
+  const loadVillages = useMemo(() => {
+    const distCode = selectedDist?.value;
+    if (!distCode) return async () => [];
+
+    return makeDebouncedLoader(async (inputValue, signal) => {
+      const res = await api.get(API_ENDPOINTS.WILAYAH.VILLAGES(distCode), {
+        params: { q: inputValue },
+        signal,
+      });
+      const list = res.data?.data || res.data || [];
+      return list.map((v) => ({
+        value: v.name,
+        label: v.name,
+        code: v.code,
+        name: v.name,
+      }));
+    });
+  }, [selectedDist?.value, makeDebouncedLoader]);
 
   // Initial synchronization with props and locked user scope
   useEffect(() => {

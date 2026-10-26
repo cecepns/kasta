@@ -48,7 +48,7 @@ export default function ExcelModal({
         .replace(/[^a-zA-Z0-9]/g, "_");
       const filename = `KASTA_Arsip_${label}_${scopeName}_${exportYear || "SemuaTahun"}`;
 
-      exportRecordsToExcel(rows, type, filename, {
+      await exportRecordsToExcel(rows, type, filename, {
         kabupaten: activeKabupaten,
         tahun: exportYear,
       });

@@ -117,7 +117,7 @@ export default function Login() {
         </form>
 
         {/* Info & Demo Switcher */}
-        <div className="mt-5 space-y-2.5 border-t border-sand-100 pt-3.5">
+        {/* <div className="mt-5 space-y-2.5 border-t border-sand-100 pt-3.5">
           <p className="text-[11px] text-clay-600 text-center">
             Wilayah kerja ditentukan otomatis sesuai penetapan Administrator pada akun masing-masing.
           </p>
@@ -161,7 +161,7 @@ export default function Login() {
               </button>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

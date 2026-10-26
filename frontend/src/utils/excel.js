@@ -7,46 +7,91 @@ const formatParties = (parties) => {
   return arr.map((p) => p.nama || p.jenis || "-").join("; ");
 };
 
-// Map tipologi string to 5 specific BPN columns: PP, PB, MP/B, BB, MM
-export const mapTipologiToColumns = (tipologi = "") => {
-  const t = (tipologi || "").toLowerCase().trim();
-  const cols = { pp: "", pb: "", mpb: "", bb: "", mm: "" };
-  if (!t) return cols;
+// Deteksi jenis pihak (Perorangan, Badan Hukum, Pemerintah, Masyarakat)
+export const getPartyKind = (partyArray) => {
+  const arr = safeArray(partyArray);
+  if (!arr.length) return "Perorangan";
+  const p = arr[0] || {};
+  const jenis = p.jenis || "";
+  const nama = (p.nama || "").toLowerCase();
 
-  if (t.includes("batas") || t.includes("letak")) {
-    cols.bb = tipologi;
-  } else if (
-    t.includes("penguasaan") ||
-    t.includes("pemilikan") ||
-    t.includes("adat") ||
-    t.includes("ulayat") ||
-    t.includes("putusan")
+  if (
+    jenis === "Badan Hukum" ||
+    /^pt\b|^cv\b|^pt\.|^perseroan|^yayasan|^koperasi|^corp/i.test(nama)
   ) {
-    cols.pp = tipologi;
-  } else if (
-    t.includes("sertipikat") ||
-    t.includes("penetapan hak") ||
-    t.includes("pendaftaran") ||
-    t.includes("pemeliharaan") ||
-    t.includes("elektronik")
-  ) {
-    cols.pb = tipologi;
-  } else if (
-    t.includes("pemanfaatan") ||
-    t.includes("penggunaan") ||
-    t.includes("pengadaan") ||
-    t.includes("land reform")
-  ) {
-    cols.mpb = tipologi;
-  } else if (t.includes("mafia") || t.includes("kejahatan")) {
-    cols.mm = tipologi;
-  } else {
-    cols.pp = tipologi;
+    return "Badan Hukum";
   }
+  if (
+    jenis === "Pemerintah" ||
+    /^pemerintah|^pemkab|^pemkot|^pemprov|^bumn|^kementerian|^dinas|^badan/i.test(nama)
+  ) {
+    return "Pemerintah";
+  }
+  if (
+    jenis === "Kelompok Masyarakat" ||
+    /^masyarakat|^warga|^kelompok|^aliansi|^komunitas|^tokoh adat/i.test(nama)
+  ) {
+    return "Masyarakat";
+  }
+  return "Perorangan";
+};
+
+// Mapping kolom tipologi BPN berdasarkan SUBJEK PIHAK:
+// PP   = Perorangan dengan Perorangan (Kolom G)
+// PB   = Perorangan dengan Badan Hukum / PT (Kolom H)
+// MP/B = Masyarakat dengan Pemerintah / BUMN (Kolom I)
+// BB   = Badan Hukum dengan Badan Hukum (Kolom J)
+// MM   = Antar Kelompok Masyarakat (Kolom K)
+export const mapTipologiToColumnsByParties = (tipologi = "", pengadu, teradu) => {
+  const tipVal = tipologi || "Penguasaan dan Pemilikan Tanah";
+  const cols = { pp: "", pb: "", mpb: "", bb: "", mm: "" };
+
+  const k1 = getPartyKind(pengadu);
+  const k2 = getPartyKind(teradu);
+
+  // 1. PP: Perorangan vs Perorangan
+  if (k1 === "Perorangan" && k2 === "Perorangan") {
+    cols.pp = tipVal;
+  }
+  // 2. PB: Perorangan vs Badan Hukum (PT, CV, dll.)
+  else if (
+    (k1 === "Perorangan" && k2 === "Badan Hukum") ||
+    (k1 === "Badan Hukum" && k2 === "Perorangan")
+  ) {
+    cols.pb = tipVal;
+  }
+  // 3. MP/B: Masyarakat vs Pemerintah / BUMN (atau Perorangan vs Pemerintah)
+  else if (
+    (k1 === "Masyarakat" && k2 === "Pemerintah") ||
+    (k1 === "Pemerintah" && k2 === "Masyarakat") ||
+    (k1 === "Perorangan" && k2 === "Pemerintah") ||
+    (k1 === "Pemerintah" && k2 === "Perorangan")
+  ) {
+    cols.mpb = tipVal;
+  }
+  // 4. BB: Badan Hukum vs Badan Hukum
+  else if (k1 === "Badan Hukum" && k2 === "Badan Hukum") {
+    cols.bb = tipVal;
+  }
+  // 5. MM: Antar Kelompok Masyarakat
+  else if (k1 === "Masyarakat" && k2 === "Masyarakat") {
+    cols.mm = tipVal;
+  }
+  // Fallbacks
+  else if (k1 === "Badan Hukum" || k2 === "Badan Hukum") {
+    cols.pb = tipVal;
+  } else if (k1 === "Pemerintah" || k2 === "Pemerintah") {
+    cols.mpb = tipVal;
+  } else if (k1 === "Masyarakat" || k2 === "Masyarakat") {
+    cols.mm = tipVal;
+  } else {
+    cols.pp = tipVal;
+  }
+
   return cols;
 };
 
-// Format complete Letak Objek string (Dusun, Desa, Kecamatan, Kabupaten, Provinsi)
+// Format alamat lengkap Letak Objek (Dusun, Desa, Kecamatan, Kabupaten, Provinsi)
 export const formatLetakObjek = (r) => {
   const parts = [];
   if (r.dusun) parts.push(r.dusun);
@@ -102,7 +147,69 @@ export const formatStatusHAT = (r) => {
   return "Tanah Negara";
 };
 
-// Export records to Excel matching BPN ENTRY format
+// Helper: Menyesuaikan Judul Kantor Pertanahan dan Tahun pada sheet-sheet laporan BPN
+const updateWorkbookReportHeaders = (wb, targetKabupaten, targetYear) => {
+  let kantorLabel = "KABUPATEN MAMASA";
+  if (targetKabupaten && targetKabupaten !== "Semua Wilayah" && targetKabupaten !== "Nasional") {
+    const raw = targetKabupaten.toUpperCase().trim();
+    kantorLabel = raw.startsWith("KOTA") || raw.startsWith("KABUPATEN") ? raw : `KABUPATEN ${raw}`;
+  }
+  const yearLabel = String(targetYear || new Date().getFullYear());
+
+  // 1. Sheet TAHUN 2024
+  const wsTahun = wb.Sheets["TAHUN 2024"];
+  if (wsTahun) {
+    if (wsTahun["A1"]) {
+      wsTahun["A1"].v = `DATA PENGADUAN KANTOR PERTANAHAN ${kantorLabel} `;
+      wsTahun["A1"].w = wsTahun["A1"].v;
+    }
+    if (wsTahun["A2"]) {
+      wsTahun["A2"].v = `TAHUN ANGGARAN ${yearLabel}`;
+      wsTahun["A2"].w = wsTahun["A2"].v;
+    }
+  }
+
+  // 2. Sheet Data Kasus Pertanahan 2024
+  const wsKasus = wb.Sheets["Data Kasus Pertanahan 2024"];
+  if (wsKasus) {
+    if (wsKasus["A2"]) {
+      wsKasus["A2"].v = `KANTOR PERTANAHAN ${kantorLabel}`;
+      wsKasus["A2"].w = wsKasus["A2"].v;
+    }
+    if (wsKasus["A3"]) {
+      wsKasus["A3"].v = `TAHUN ${yearLabel}`;
+      wsKasus["A3"].w = wsKasus["A3"].v;
+    }
+  }
+
+  // 3. Sheet Resume Pemetaan
+  const wsResume = wb.Sheets["Resume Pemetaan"];
+  if (wsResume) {
+    if (wsResume["A2"]) {
+      wsResume["A2"].v = `KANTOR PERTANAHAN ${kantorLabel}`;
+      wsResume["A2"].w = wsResume["A2"].v;
+    }
+    if (wsResume["A3"]) {
+      wsResume["A3"].v = `TAHUN ${yearLabel}`;
+      wsResume["A3"].w = wsResume["A3"].v;
+    }
+  }
+
+  // 4. Sheet TREND KASUS
+  const wsTrend = wb.Sheets["TREND KASUS"];
+  if (wsTrend) {
+    if (wsTrend["A2"]) {
+      wsTrend["A2"].v = `KANTOR PERTANAHAN ${kantorLabel}`;
+      wsTrend["A2"].w = wsTrend["A2"].v;
+    }
+    if (wsTrend["A3"]) {
+      wsTrend["A3"].v = `TAHUN ${yearLabel}`;
+      wsTrend["A3"].w = wsTrend["A3"].v;
+    }
+  }
+};
+
+// Ekspor berkas ke Excel
 export const exportRecordsToExcel = async (
   rows = [],
   type = "sengketa",
@@ -111,8 +218,48 @@ export const exportRecordsToExcel = async (
 ) => {
   const isSengketa = type === "sengketa";
 
+  // ============================================================
+  // EXPORT SENGKETA: BPN ENTRY Format + Full Application Data
+  // ============================================================
   if (isSengketa) {
-    // 1. Coba populate ke master template BPN (Multi-Sheet: ENTRY, TAHUN, Data Kasus, Resume, TREND)
+    const targetKab = options.kabupaten || (rows[0]?.kabupaten || "Semua Wilayah");
+    const targetYear = options.tahun || (rows[0]?.tahun || new Date().getFullYear());
+
+    // Header tambahan untuk Lokasi detail & Status Penanganan sesuai permintaan klien
+    const extraHeaders = [
+      "Status Penanganan",
+      "Bentuk Penanganan",
+      "Klasifikasi Kasus",
+      "Dusun / Alamat",
+      "Desa / Kelurahan",
+      "Kecamatan",
+      "Kabupaten / Kota",
+      "Provinsi",
+      "Titik Koordinat (Lat, Lng)",
+    ];
+
+    // Data aplikasi lengkap untuk sheet kedua: Data Sengketa (Aplikasi)
+    const appRows = rows.map((r, i) => ({
+      "No": i + 1,
+      "Tahun": r.tahun || "",
+      "No. Registrasi": r.no_registrasi || "",
+      "Pihak Pengadu": formatParties(r.pengadu),
+      "Pihak Teradu": formatParties(r.teradu),
+      "Provinsi": r.provinsi || "",
+      "Kabupaten": r.kabupaten || "",
+      "Kecamatan": r.kecamatan || "",
+      "Desa / Kelurahan": r.desa || "",
+      "Dusun / Alamat": r.dusun || r.alamat || "",
+      "Latitude": r.lat ?? "",
+      "Longitude": r.lng ?? "",
+      "Klasifikasi": r.klasifikasi || "",
+      "Tipologi": r.tipologi || "",
+      "Bentuk Penanganan": r.bentuk_penanganan || "",
+      "Status Penanganan": r.status || "",
+      "Akar Masalah": r.akar_masalah || "",
+      "Pokok Masalah": r.pokok_masalah || "",
+    }));
+
     try {
       const resp = await fetch("/template_pengaduan.xlsx");
       if (resp.ok) {
@@ -120,16 +267,26 @@ export const exportRecordsToExcel = async (
         const wb = XLSX.read(buffer, { type: "array", cellStyles: true, cellFormula: true });
         const ws = wb.Sheets["ENTRY"];
         if (ws) {
-          // Bersihkan data lama baris 2 ke atas (pertahankan header A1:S1 beserta warnanya)
+          // 1. Sesuaikan judul Kantor Pertanahan dan Tahun Anggaran pada sheet-sheet laporan
+          updateWorkbookReportHeaders(wb, targetKab, targetYear);
+
+          // 2. Bersihkan data baris > 1 di template ENTRY
           Object.keys(ws).forEach((k) => {
             if (k.startsWith("!")) return;
             const rowNum = parseInt(k.replace(/[A-Z]/g, ""), 10);
             if (rowNum > 1) delete ws[k];
           });
 
-          // Siapkan data baris baru sesuai 19 kolom sheet ENTRY
+          // 3. Tambahkan kolom Lokasi & Status Penanganan pada baris header (A1..)
+          const origHeaders = XLSX.utils.sheet_to_json(ws, { header: 1 })[0] || [];
+          const allHeaders = [...origHeaders, ...extraHeaders];
+          XLSX.utils.sheet_add_aoa(ws, [allHeaders], { origin: "A1" });
+
+          // 4. Siapkan baris data sheet ENTRY
           const dataRows = rows.map((r, i) => {
-            const tip = mapTipologiToColumns(r.tipologi);
+            // MAPPING SUBJEK: PP (Col G), PB (Col H), MP/B (Col I), BB (Col J), MM (Col K)
+            const tip = mapTipologiToColumnsByParties(r.tipologi, r.pengadu, r.teradu);
+
             return [
               i + 1,
               r.no_registrasi || "",
@@ -147,30 +304,47 @@ export const exportRecordsToExcel = async (
               formatLetakObjek(r),
               r.luas_objek || (r.luas ? `${r.luas} M²` : null),
               r.pihak_berkontribusi || null,
-              r.bentuk_penanganan || r.status || null,
+              r.status ? (r.bentuk_penanganan ? `${r.bentuk_penanganan} (${r.status})` : r.status) : (r.bentuk_penanganan || null),
               r.tanggal_penyelesaian || null,
               r.kriteria_penyelesaian || null,
+              // Kolom tambahan Lokasi & Status Penanganan sesuai aplikasi
+              r.status || "-",
+              r.bentuk_penanganan || "-",
+              r.klasifikasi || "-",
+              r.dusun || r.alamat || "-",
+              r.desa || "-",
+              r.kecamatan || "-",
+              r.kabupaten || "-",
+              r.provinsi || "-",
+              r.lat && r.lng ? `${r.lat}, ${r.lng}` : "-",
             ];
           });
 
           if (dataRows.length > 0) {
             XLSX.utils.sheet_add_aoa(ws, dataRows, { origin: "A2" });
-            ws["!ref"] = `A1:S${dataRows.length + 1}`;
+            ws["!ref"] = `A1:AB${dataRows.length + 1}`;
           } else {
-            ws["!ref"] = "A1:S1";
+            ws["!ref"] = "A1:AB1";
           }
+
+          // 5. Tambahkan Sheet kedua: Data Sengketa (Aplikasi)
+          const wsApp = XLSX.utils.json_to_sheet(appRows);
+          wsApp["!cols"] = Object.keys(appRows[0] || {}).map((k) => ({
+            wch: Math.max(k.length + 3, 14),
+          }));
+          XLSX.utils.book_append_sheet(wb, wsApp, "Data Sengketa (Aplikasi)");
 
           XLSX.writeFile(wb, `${filename}.xlsx`);
           return;
         }
       }
     } catch (e) {
-      console.warn("Fallback pembuatan standalone sheet ENTRY:", e);
+      console.warn("Fallback standalone sheet sengketa:", e);
     }
 
-    // 2. Fallback: Buat sheet ENTRY standalone dengan 19 kolom dan lebar kolom presisi
-    const mapped = rows.map((r, i) => {
-      const tip = mapTipologiToColumns(r.tipologi);
+    // Fallback: Standalone ENTRY sheet + App View sheet
+    const mappedEntry = rows.map((r, i) => {
+      const tip = mapTipologiToColumnsByParties(r.tipologi, r.pengadu, r.teradu);
       return {
         "No.": i + 1,
         "Nomor Register Surat Masuk": r.no_registrasi || "",
@@ -188,14 +362,24 @@ export const exportRecordsToExcel = async (
         "Letak Objek": formatLetakObjek(r),
         "Luas Objek": r.luas_objek || (r.luas ? `${r.luas} M²` : ""),
         "Pihak Berkontribusi": r.pihak_berkontribusi || "",
-        "Tindak Lanjut/Penyelesaian": r.bentuk_penanganan || r.status || "",
+        "Tindak Lanjut/Penyelesaian": r.status ? (r.bentuk_penanganan ? `${r.bentuk_penanganan} (${r.status})` : r.status) : (r.bentuk_penanganan || ""),
         "Tanggal Penyelesaian": r.tanggal_penyelesaian || "",
         "Kriteria Penyelesaian": r.kriteria_penyelesaian || "",
+        "Status Penanganan": r.status || "",
+        "Bentuk Penanganan": r.bentuk_penanganan || "",
+        "Klasifikasi Kasus": r.klasifikasi || "",
+        "Dusun / Alamat": r.dusun || r.alamat || "",
+        "Desa / Kelurahan": r.desa || "",
+        "Kecamatan": r.kecamatan || "",
+        "Kabupaten / Kota": r.kabupaten || "",
+        "Provinsi": r.provinsi || "",
+        "Titik Koordinat (Lat, Lng)": r.lat && r.lng ? `${r.lat}, ${r.lng}` : "",
       };
     });
 
-    const ws = XLSX.utils.json_to_sheet(mapped);
-    ws["!cols"] = [
+    const wb = XLSX.utils.book_new();
+    const wsEntry = XLSX.utils.json_to_sheet(mappedEntry);
+    wsEntry["!cols"] = [
       { wch: 6 },   // No.
       { wch: 26 },  // Nomor Register Surat Masuk
       { wch: 28 },  // Perihal
@@ -215,15 +399,32 @@ export const exportRecordsToExcel = async (
       { wch: 32 },  // Tindak Lanjut/Penyelesaian
       { wch: 20 },  // Tanggal Penyelesaian
       { wch: 24 },  // Kriteria Penyelesaian
+      { wch: 22 },  // Status Penanganan
+      { wch: 22 },  // Bentuk Penanganan
+      { wch: 18 },  // Klasifikasi Kasus
+      { wch: 25 },  // Dusun/Alamat
+      { wch: 20 },  // Desa
+      { wch: 20 },  // Kecamatan
+      { wch: 22 },  // Kabupaten
+      { wch: 22 },  // Provinsi
+      { wch: 25 },  // Titik Koordinat
     ];
+    XLSX.utils.book_append_sheet(wb, wsEntry, "ENTRY");
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "ENTRY");
+    // Sheet kedua
+    const wsApp = XLSX.utils.json_to_sheet(appRows);
+    wsApp["!cols"] = Object.keys(appRows[0] || {}).map((k) => ({
+      wch: Math.max(k.length + 3, 14),
+    }));
+    XLSX.utils.book_append_sheet(wb, wsApp, "Data Sengketa (Aplikasi)");
+
     XLSX.writeFile(wb, `${filename}.xlsx`);
     return;
   }
 
-  // Format Perkara
+  // ============================================================
+  // EXPORT PERKARA: Format Lengkap Sesuai Aplikasi (Sudah Disetujui Klien)
+  // ============================================================
   const mapped = rows.map((r, i) => ({
     "No": i + 1,
     "Tahun": r.tahun || "",
@@ -420,14 +621,14 @@ export const parseExcelFile = (file, type = "sengketa") => {
               dusun,
               lat: lat ? +lat : null,
               lng: lng ? +lng : null,
-              klasifikasi: norm.klasifikasi || norm.klasifikasikasus || "Ringan",
+              klasifikasi: norm.klasifikasikasus || norm.klasifikasi || "Ringan",
               tipologi,
               bentuk_penanganan:
+                norm.bentukpenanganan ||
                 norm.tindaklanjutpenyelesaian ||
                 norm.tindaklanjut ||
-                norm.bentukpenanganan ||
                 "",
-              status: norm.status || norm.statuskasus || "Sementara Penanganan",
+              status: norm.statuspenanganan || norm.statuskasus || norm.status || "Sementara Penanganan",
               akar_masalah: norm.akarmasalah || norm.perihal || "",
               pokok_masalah: norm.pokokmasalah || "",
             };

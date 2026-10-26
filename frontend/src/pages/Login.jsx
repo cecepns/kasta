@@ -45,9 +45,9 @@ export default function Login() {
             <p className="text-xs font-semibold text-clay-600 mt-1">
               initiative by Alvariz M.T.
             </p>
-            <p className="text-[11px] text-clay-400 mt-0.5">
+            {/* <p className="text-[11px] text-clay-400 mt-0.5">
               Sistem Informasi Arsip Sengketa & Perkara Pertanahan
-            </p>
+            </p> */}
           </div>
         </div>
 

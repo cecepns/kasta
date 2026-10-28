@@ -20,7 +20,10 @@ export default defineConfig({
         theme_color: "#8A4B1F",
         background_color: "#FDE3CB",
         display: "standalone",
-        icons: [{ src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
+        icons: [
+          { src: "logo.png", sizes: "192x192 512x512", type: "image/png" },
+          { src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" },
+        ],
       },
     }),
   ],
